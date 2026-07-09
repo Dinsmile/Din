@@ -362,9 +362,9 @@ input{font-family:inherit;}
 .toggle.on{background:var(--green);}
 .toggle::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;}
 .toggle.on::after{left:23px;}
-.score-edit-row{display:flex;align-items:center;gap:.4em;margin-bottom:.4em;}
-.score-edit-row span{flex:1;font-size:.78rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.score-edit-row input{width:60px;padding:.3em;border-radius:8px;border:none;text-align:center;font-weight:800;color:var(--ink);}
+.score-edit-row{display:flex;align-items:center;gap:.35em;margin-bottom:.5em;flex-wrap:wrap;}
+.score-edit-row span{flex:1 1 100%;font-size:.78rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.score-edit-row input{width:56px;padding:.3em;border-radius:8px;border:none;text-align:center;font-weight:800;color:var(--ink);}
 .pp-answers{font-size:.75rem;line-height:1.5;background:rgba(255,255,255,.06);padding:.6em;border-radius:8px;max-height:140px;overflow:auto;}
 
 /* ============================================================
@@ -850,8 +850,8 @@ function renderR1(step) {
         <div class="award-row">
           <div class="aw-label">ทีมที่ตอบถูก (ให้คะแนนอัตโนมัติตามจำนวนคำใบ้ที่เปิด: เปิด 1=5, 2=4, 3=3, 4=2 คะแนน)</div>
           ${teamButtons}
-          <button class="btn btn-sm btn-danger" onclick="flashWrong()">❌ ตอบผิด (เอฟเฟกต์)</button>
         </div>
+        ${renderDeductRow()}
       </div>
     </div>
   `;
@@ -891,8 +891,8 @@ function renderR2(step) {
         </div>
         <div class="award-row">
           <button class="btn btn-green" onclick="awardR2Selected()">🏆 Award 3 Points ให้ทีมที่เลือก</button>
-          <button class="btn btn-sm btn-danger" onclick="flashWrong()">❌ ตอบผิด (เอฟเฟกต์)</button>
         </div>
+        ${renderDeductRow()}
       </div>
     </div>
   `;
@@ -944,6 +944,7 @@ function renderFinal(step) {
           <button class="btn btn-primary" onclick="awardFinal(5)">+5 ถูกข้อ 2</button>
           <button class="btn btn-accent btn-lg" onclick="awardFinalJackpot()">🎉 JACKPOT +10 (ถูกทั้ง 2 ข้อ)</button>
         </div>
+        ${renderDeductRow()}
       </div>
     </div>
   `;
@@ -1231,13 +1232,30 @@ function showJackpotBanner() {
 }
 
 /* ============================================================
-   SECTION: JAVASCRIPT — WRONG ANSWER EFFECT (no score change)
+   SECTION: JAVASCRIPT — WRONG ANSWER / DEDUCT POINTS
    ============================================================ */
 function flashWrong() {
   playWrong();
   const stage = document.getElementById("stage");
   stage.classList.add("stage-flash");
   setTimeout(() => stage.classList.remove("stage-flash"), 500);
+}
+function renderDeductRow() {
+  const teamBtns = state.teams.map((t, i) =>
+    `<button class="btn btn-sm btn-danger" onclick="deductPoints(${i},10)">➖ ${escapeHtml(t.name)}</button>`
+  ).join("");
+  return `
+    <div class="award-row">
+      <div class="aw-label">หักคะแนน (ทีมตอบผิด / ผิดกติกา) -10 ต่อครั้ง</div>
+      ${teamBtns}
+    </div>
+  `;
+}
+function deductPoints(teamIdx, amount) {
+  state.teams[teamIdx].score = Math.max(0, state.teams[teamIdx].score - amount);
+  flashWrong();
+  pulseTeam(teamIdx);
+  render();
 }
 
 /* ============================================================
@@ -1348,6 +1366,7 @@ function renderPracticePanel() {
   editList.innerHTML = state.teams.map((t, i) => `
     <div class="score-edit-row">
       <span>${escapeHtml(t.name)}</span>
+      <button class="btn btn-sm btn-danger" onclick="adjustScore(${i},-10)">-10</button>
       <button class="btn btn-sm btn-ghost" onclick="adjustScore(${i},-1)">-1</button>
       <input type="number" value="${t.score}" onchange="editScore(${i}, this.value)">
       <button class="btn btn-sm btn-ghost" onclick="adjustScore(${i},1)">+1</button>
@@ -1421,6 +1440,10 @@ document.addEventListener("keydown", (e) => {
   } else if (e.key === "+" || e.key === "=") {
     if (state.screen === "game" && state.keySelectedTeam !== null) {
       genericAwardCurrent(state.keySelectedTeam);
+    }
+  } else if (e.key === "-" || e.key === "_") {
+    if (state.screen === "game" && state.keySelectedTeam !== null) {
+      deductPoints(state.keySelectedTeam, 10);
     }
   }
 });
