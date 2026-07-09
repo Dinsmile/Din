@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เปิดคำใบ้ ปิดดีล – CK Game Show</title>
+<style>
+/* ============================================================
+   SECTION: RESET & BASE
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  font-family:"Tahoma","Segoe UI","Sarabun",Arial,sans-serif;
+  color:#fff;
+  background:#081B42;
+  overflow-x:hidden;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  user-select:none;
+}
+button{font-family:inherit;cursor:pointer;border:none;outline:none;}
+input{font-family:inherit;}
+::selection{background:#FFC72C;color:#081B42;}
+
+/* ============================================================
+   SECTION: COLOR VARIABLES
+   ============================================================ */
+:root{
+  --blue:#123C94;
+  --blue-light:#2159D9;
+  --blue-dark:#081B42;
+  --red:#E31937;
+  --red-dark:#9E0F26;
+  --yellow:#FFC72C;
+  --yellow-dark:#E0A800;
+  --white:#FFFFFF;
+  --ink:#0A1330;
+  --green:#1FBF5C;
+}
+
+/* ============================================================
+   SECTION: ANIMATED STAGE BACKGROUND (spotlights + pattern)
+   ============================================================ */
+#stage-bg{
+  position:fixed;inset:0;z-index:0;overflow:hidden;
+  background:radial-gradient(ellipse at 50% -10%,#1a3a8f 0%,#081B42 55%,#050F28 100%);
+}
+#stage-bg .spot{
+  position:absolute;border-radius:50%;
+  filter:blur(40px);opacity:.35;
+  mix-blend-mode:screen;
+}
+#stage-bg .spot1{width:38vw;height:38vw;background:radial-gradient(circle,#FFC72C 0%,transparent 70%);top:-8vw;left:-6vw;animation:driftA 18s ease-in-out infinite alternate;}
+#stage-bg .spot2{width:44vw;height:44vw;background:radial-gradient(circle,#E31937 0%,transparent 70%);bottom:-14vw;right:-10vw;animation:driftB 22s ease-in-out infinite alternate;}
+#stage-bg .spot3{width:30vw;height:30vw;background:radial-gradient(circle,#2159D9 0%,transparent 70%);top:20%;right:10%;animation:driftC 16s ease-in-out infinite alternate;}
+@keyframes driftA{from{transform:translate(0,0) scale(1);}to{transform:translate(6vw,4vw) scale(1.15);}}
+@keyframes driftB{from{transform:translate(0,0) scale(1);}to{transform:translate(-5vw,-6vw) scale(1.1);}}
+@keyframes driftC{from{transform:translate(0,0) scale(1);}to{transform:translate(-4vw,5vw) scale(1.2);}}
+#stage-bg .stripes{
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(115deg,rgba(255,255,255,.035) 0 2px,transparent 2px 60px);
+}
+#stage-bg .floor{
+  position:absolute;left:0;right:0;bottom:0;height:22vh;
+  background:linear-gradient(to top,rgba(255,199,44,.10),transparent);
+}
+
+/* ============================================================
+   SECTION: LAYOUT SHELL
+   ============================================================ */
+#app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;}
+
+/* ---- Top scoreboard bar ---- */
+#topbar{
+  display:flex;align-items:center;gap:.6vw;
+  padding:.6vh 1.2vw;
+  background:linear-gradient(180deg,rgba(8,27,66,.96),rgba(8,27,66,.85));
+  border-bottom:3px solid var(--yellow);
+  box-shadow:0 4px 18px rgba(0,0,0,.35);
+}
+#topbar .brand{
+  font-weight:900;font-size:clamp(.9rem,1.3vw,1.4rem);color:var(--yellow);
+  white-space:nowrap;padding-right:.8vw;border-right:2px solid rgba(255,255,255,.2);margin-right:.6vw;
+  line-height:1.1;
+}
+#topbar .brand small{display:block;font-size:.6em;color:#fff;font-weight:600;opacity:.85;}
+#score-strip{display:flex;gap:.6vw;flex:1;}
+.chip{
+  flex:1;min-width:0;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.15);
+  border-radius:12px;padding:.4vh .6vw;text-align:center;position:relative;
+  transition:transform .25s, box-shadow .25s, border-color .25s, background .25s;
+}
+.chip .cname{font-size:clamp(.6rem,.85vw,.95rem);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9;}
+.chip .cscore{font-size:clamp(1.1rem,2vw,2.1rem);font-weight:900;color:var(--yellow);line-height:1.1;}
+.chip.leading{background:linear-gradient(160deg,rgba(255,199,44,.35),rgba(255,199,44,.08));border-color:var(--yellow);box-shadow:0 0 18px rgba(255,199,44,.55);}
+.chip.leading::before{content:"👑";position:absolute;top:-.9em;left:50%;transform:translateX(-50%);font-size:1em;}
+.chip.pulse{animation:chipPulse .55s ease;}
+@keyframes chipPulse{0%{transform:scale(1);}40%{transform:scale(1.18);box-shadow:0 0 25px rgba(255,199,44,.9);}100%{transform:scale(1);}}
+.chip.key-selected{outline:3px dashed #fff;}
+
+/* ---- Round label strip ---- */
+#roundlabel{
+  text-align:center;font-weight:800;letter-spacing:.05em;
+  font-size:clamp(.75rem,1.1vw,1.1rem);color:#fff;opacity:.85;
+  padding:.3vh 0;background:rgba(0,0,0,.15);
+}
+
+/* ---- Main stage content ---- */
+#stage{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  padding:1.5vh 3vw;position:relative;
+}
+.screen{width:100%;max-width:1300px;animation:fadeUp .5s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);}}
+
+/* Core value badge */
+.badge-tag{
+  position:absolute;left:2vw;bottom:1.4vh;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);
+  padding:.4em .9em;border-radius:999px;font-size:clamp(.65rem,.85vw,.9rem);
+  font-weight:700;backdrop-filter:blur(4px);
+}
+
+/* ============================================================
+   SECTION: BUTTONS
+   ============================================================ */
+.btn{
+  padding:.85em 1.5em;border-radius:14px;font-weight:800;
+  font-size:clamp(.95rem,1.25vw,1.35rem);
+  box-shadow:0 6px 0 rgba(0,0,0,.25), 0 8px 18px rgba(0,0,0,.3);
+  transition:transform .12s, box-shadow .12s, filter .12s;
+  color:#fff;letter-spacing:.02em;
+}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.25),0 4px 10px rgba(0,0,0,.3);}
+.btn:hover{filter:brightness(1.08);}
+.btn:disabled{opacity:.35;cursor:not-allowed;filter:none;transform:none;}
+.btn-primary{background:linear-gradient(160deg,var(--blue-light),var(--blue));}
+.btn-danger{background:linear-gradient(160deg,#ff4d5e,var(--red));}
+.btn-accent{background:linear-gradient(160deg,#ffe27a,var(--yellow));color:var(--ink);}
+.btn-green{background:linear-gradient(160deg,#3fe084,var(--green));}
+.btn-ghost{background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.35)!important;box-shadow:none;}
+.btn-ghost:active{transform:translateY(2px);}
+.btn-sm{padding:.5em .9em;font-size:clamp(.75rem,.95vw,1rem);border-radius:10px;box-shadow:0 4px 0 rgba(0,0,0,.25);}
+.btn-block{width:100%;}
+.btn-lg{padding:1.1em 2em;font-size:clamp(1.2rem,1.8vw,1.9rem);border-radius:18px;}
+
+/* ============================================================
+   SECTION: HOST CONTROL BAR (bottom)
+   ============================================================ */
+#hostbar{
+  position:relative;z-index:2;
+  background:linear-gradient(180deg,#050C1F,#0A1636);
+  border-top:3px solid var(--red);
+  padding:.9vh 1.2vw;display:flex;flex-direction:column;gap:.6vh;
+}
+.hostrow{display:flex;flex-wrap:wrap;gap:.5vw;align-items:center;justify-content:center;}
+.hostrow.util{justify-content:space-between;}
+.hostrow.util .grp{display:flex;gap:.5vw;flex-wrap:wrap;}
+.hb-label{font-size:.7rem;opacity:.55;font-weight:700;margin-right:.3em;align-self:center;}
+
+/* ============================================================
+   SECTION: WELCOME SCREEN
+   ============================================================ */
+.welcome-wrap{text-align:center;}
+.game-title{
+  font-size:clamp(2.2rem,6vw,5rem);font-weight:900;
+  background:linear-gradient(90deg,var(--yellow),#fff 45%,var(--red));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 40px rgba(255,199,44,.35);
+  animation:titleGlow 3s ease-in-out infinite alternate;
+  line-height:1.15;
+}
+@keyframes titleGlow{from{filter:drop-shadow(0 0 6px rgba(255,199,44,.3));}to{filter:drop-shadow(0 0 28px rgba(227,25,55,.55));}}
+.game-sub{font-size:clamp(1.1rem,2.2vw,1.8rem);font-weight:800;color:#fff;margin-top:.3em;letter-spacing:.08em;}
+.game-sub span{color:var(--yellow);}
+.welcome-actions{display:flex;gap:1vw;justify-content:center;margin:2.2vh 0;flex-wrap:wrap;}
+.team-edit-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+  gap:.9vw;max-width:1100px;margin:2vh auto 0;
+}
+.team-edit-item{
+  background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.15);
+  border-radius:14px;padding:.8em;text-align:left;
+}
+.team-edit-item label{display:block;font-size:.75rem;opacity:.7;font-weight:700;margin-bottom:.3em;}
+.team-edit-item input{
+  width:100%;padding:.6em .7em;border-radius:10px;border:2px solid transparent;
+  background:rgba(255,255,255,.95);color:var(--ink);font-weight:700;font-size:1rem;
+}
+.team-edit-item input:focus{border-color:var(--yellow);}
+
+/* ============================================================
+   SECTION: ROUND BANNER
+   ============================================================ */
+.round-banner{text-align:center;padding:6vh 2vw;}
+.round-banner .rb-eyebrow{font-size:clamp(1rem,1.6vw,1.4rem);font-weight:800;color:var(--yellow);letter-spacing:.15em;}
+.round-banner h1{
+  font-size:clamp(2rem,5.5vw,4.2rem);font-weight:900;margin-top:.2em;
+  animation:bannerPop .7s cubic-bezier(.2,1.4,.4,1);
+}
+@keyframes bannerPop{0%{transform:scale(.4) rotate(-4deg);opacity:0;}70%{transform:scale(1.08) rotate(1deg);opacity:1;}100%{transform:scale(1) rotate(0);}}
+.round-banner p{margin-top:1em;font-size:clamp(1rem,1.6vw,1.3rem);opacity:.85;}
+
+/* ============================================================
+   SECTION: QUESTION CARD (Round 1 & shared)
+   ============================================================ */
+.card{
+  background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.18);
+  border-radius:22px;padding:2vh 2vw;backdrop-filter:blur(6px);
+  box-shadow:0 10px 30px rgba(0,0,0,.35);
+}
+.q-index{font-weight:800;color:var(--yellow);font-size:clamp(1rem,1.4vw,1.3rem);letter-spacing:.08em;}
+.situation-box{
+  margin-top:.6em;background:rgba(0,0,0,.25);border-left:6px solid var(--red);
+  border-radius:12px;padding:1em 1.2em;font-size:clamp(1.1rem,2vw,1.7rem);font-weight:700;line-height:1.5;
+}
+.hints-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1vw;margin-top:2vh;}
+.hint-card{aspect-ratio:4/3;perspective:1200px;}
+.hint-card-inner{position:relative;width:100%;height:100%;transition:transform .65s cubic-bezier(.3,.9,.4,1);transform-style:preserve-3d;}
+.hint-card.revealed .hint-card-inner{transform:rotateY(180deg);}
+.hint-face{position:absolute;inset:0;backface-visibility:hidden;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:.6em;text-align:center;}
+.hint-front{background:linear-gradient(160deg,var(--blue-light),var(--blue));border:2px solid rgba(255,255,255,.25);}
+.hint-front .hnum{font-size:clamp(1.6rem,2.6vw,2.6rem);font-weight:900;color:var(--yellow);}
+.hint-front .hlock{font-size:1.4rem;opacity:.7;}
+.hint-back{background:linear-gradient(160deg,#fff,#eef1fa);color:var(--ink);transform:rotateY(180deg);border:2px solid var(--yellow);}
+.hint-back p{font-size:clamp(.8rem,1.15vw,1.15rem);font-weight:700;line-height:1.35;}
+.hint-back .hnum2{font-size:.75rem;font-weight:800;color:var(--red);margin-bottom:.3em;letter-spacing:.05em;}
+
+.answer-box{
+  margin-top:2vh;background:linear-gradient(160deg,rgba(255,199,44,.18),rgba(255,199,44,.05));
+  border:2px solid var(--yellow);border-radius:16px;padding:1.1em 1.4em;
+  animation:answerPop .5s ease;
+}
+@keyframes answerPop{from{opacity:0;transform:scale(.9);}to{opacity:1;transform:scale(1);}}
+.answer-box .ans-title{font-size:clamp(1.1rem,1.9vw,1.7rem);font-weight:900;color:var(--yellow);}
+.answer-box .mc-note{margin-top:.5em;font-size:clamp(.85rem,1.2vw,1.15rem);opacity:.92;font-style:italic;line-height:1.5;}
+
+.award-row{margin-top:1.6vh;display:flex;flex-wrap:wrap;gap:.6vw;align-items:center;}
+.award-row .aw-label{font-size:.85rem;opacity:.7;font-weight:700;width:100%;}
+.team-pick-btn{
+  padding:.6em 1em;border-radius:12px;font-weight:800;font-size:clamp(.8rem,1.05vw,1.05rem);
+  background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.3);color:#fff;
+  transition:all .15s;
+}
+.team-pick-btn.selected{background:var(--yellow);color:var(--ink);border-color:var(--yellow);}
+.team-pick-btn.awarded{background:var(--green);color:#fff;border-color:var(--green);opacity:.85;}
+.team-pick-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* ============================================================
+   SECTION: ROUND 2 (speed round)
+   ============================================================ */
+.quote-box{
+  text-align:center;font-size:clamp(1.4rem,3.4vw,2.6rem);font-weight:900;line-height:1.45;
+  padding:2vh 1vw;
+}
+.quote-box::before{content:"“";color:var(--yellow);}
+.quote-box::after{content:"”";color:var(--yellow);}
+.countdown-wrap{display:flex;flex-direction:column;align-items:center;gap:.6vh;margin:1.5vh 0;}
+.countdown-num{
+  font-size:clamp(4rem,10vw,8rem);font-weight:900;color:var(--yellow);
+  text-shadow:0 0 30px rgba(255,199,44,.6);
+  transition:transform .15s;
+}
+.countdown-num.tick{animation:tickPulse .5s ease;}
+@keyframes tickPulse{0%{transform:scale(1.4);}100%{transform:scale(1);}}
+.stage-flash{animation:flashBg .5s ease;}
+@keyframes flashBg{0%{background:rgba(227,25,55,.35);}100%{background:transparent;}}
+
+/* ============================================================
+   SECTION: FINAL ROUND
+   ============================================================ */
+.final-situation{
+  background:linear-gradient(160deg,rgba(227,25,55,.22),rgba(18,60,148,.22));
+  border:2px solid var(--yellow);border-radius:18px;padding:1.4em;
+  font-size:clamp(1.05rem,1.9vw,1.55rem);font-weight:700;line-height:1.5;margin-bottom:1.6vh;
+}
+.mc-block{margin-top:1.6vh;}
+.mc-block h3{font-size:clamp(1rem,1.5vw,1.3rem);color:var(--yellow);margin-bottom:.5em;font-weight:900;}
+.opt-list{display:grid;gap:.55vh;}
+.opt-item{
+  background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.18);
+  border-radius:12px;padding:.7em 1em;font-size:clamp(.9rem,1.25vw,1.2rem);font-weight:700;
+  display:flex;gap:.6em;
+}
+.opt-item .k{color:var(--yellow);font-weight:900;}
+.opt-item.correct{border-color:var(--green);background:rgba(31,191,92,.18);}
+.takeaway-box{
+  margin-top:1.6vh;text-align:center;background:rgba(255,199,44,.12);border:2px dashed var(--yellow);
+  border-radius:14px;padding:1em 1.4em;font-weight:800;font-size:clamp(.95rem,1.4vw,1.25rem);
+}
+.jackpot-banner{
+  text-align:center;font-size:clamp(1.6rem,3vw,2.8rem);font-weight:900;color:var(--yellow);
+  animation:jackpotShake .4s ease;text-shadow:0 0 25px rgba(255,199,44,.8);
+}
+@keyframes jackpotShake{0%,100%{transform:rotate(0);}25%{transform:rotate(-3deg) scale(1.05);}75%{transform:rotate(3deg) scale(1.05);}}
+
+/* ============================================================
+   SECTION: WINNER SCREEN
+   ============================================================ */
+.winner-wrap{text-align:center;}
+.winner-trophy{font-size:clamp(3rem,7vw,6rem);animation:bounce 1.2s ease infinite;}
+@keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-14px);}}
+.winner-team{
+  font-size:clamp(2rem,5vw,4rem);font-weight:900;color:var(--yellow);margin-top:.2em;
+  text-shadow:0 0 25px rgba(255,199,44,.7);
+}
+.winner-score{font-size:clamp(1.3rem,2.6vw,2rem);font-weight:800;margin-top:.1em;}
+.winner-msg{font-size:clamp(1.1rem,2vw,1.6rem);font-weight:700;margin:1.2vh 0;}
+.ranking-list{max-width:640px;margin:2vh auto;display:grid;gap:.5vh;}
+.rank-row{
+  display:flex;justify-content:space-between;background:rgba(255,255,255,.08);
+  border-radius:10px;padding:.6em 1em;font-weight:700;font-size:clamp(.9rem,1.3vw,1.15rem);
+}
+.rank-row.r1{background:rgba(255,199,44,.25);border:2px solid var(--yellow);}
+.closing-line{margin-top:2vh;font-size:clamp(1.1rem,2.1vw,1.7rem);font-weight:900;color:#fff;letter-spacing:.02em;}
+
+/* ============================================================
+   SECTION: TECHNIQUES MODAL
+   ============================================================ */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(4,8,22,.85);z-index:50;
+  display:flex;align-items:center;justify-content:center;padding:3vh 3vw;
+  animation:fadeUp .3s ease;
+}
+.modal-overlay.hidden{display:none;}
+.modal-box{
+  background:linear-gradient(160deg,#0E2358,#081B42);border:2px solid var(--yellow);
+  border-radius:22px;padding:2.2vh 2vw;max-width:1200px;width:100%;max-height:88vh;overflow:auto;
+}
+.modal-box h2{font-size:clamp(1.3rem,2.4vw,2rem);color:var(--yellow);font-weight:900;margin-bottom:.6em;text-align:center;}
+.tech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1vw;}
+.tech-card{
+  background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.2);border-radius:16px;
+  padding:1.1em;text-align:center;transition:transform .2s;
+}
+.tech-card:hover{transform:translateY(-4px);border-color:var(--yellow);}
+.tech-card .tnum{font-size:2.2rem;font-weight:900;color:var(--yellow);}
+.tech-card h3{font-size:clamp(1rem,1.4vw,1.25rem);margin:.3em 0;font-weight:900;}
+.tech-card p{font-size:clamp(.78rem,1.05vw,.95rem);opacity:.9;line-height:1.4;}
+.modal-close{display:block;margin:1.4vh auto 0;}
+
+/* ============================================================
+   SECTION: PRACTICE / MC PANEL
+   ============================================================ */
+#practicePanel{
+  position:fixed;top:0;right:0;bottom:0;width:min(380px,92vw);z-index:60;
+  background:linear-gradient(180deg,#150920,#0A0512);
+  border-left:3px solid var(--red);box-shadow:-10px 0 30px rgba(0,0,0,.5);
+  transform:translateX(100%);transition:transform .3s ease;
+  display:flex;flex-direction:column;padding:2vh 1.2vw;gap:1.2vh;overflow-y:auto;
+}
+#practicePanel.open{transform:translateX(0);}
+#practicePanel h2{color:var(--red);font-size:1.2rem;font-weight:900;display:flex;justify-content:space-between;align-items:center;}
+.pp-note{font-size:.72rem;opacity:.6;line-height:1.4;background:rgba(255,255,255,.05);padding:.6em;border-radius:10px;}
+.pp-section{background:rgba(255,255,255,.05);border-radius:12px;padding:.8em;}
+.pp-section h3{font-size:.85rem;color:var(--yellow);margin-bottom:.5em;font-weight:800;}
+.pp-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5em;font-size:.85rem;font-weight:700;}
+.toggle{
+  width:46px;height:26px;border-radius:20px;background:rgba(255,255,255,.2);position:relative;transition:.2s;flex-shrink:0;
+}
+.toggle.on{background:var(--green);}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;}
+.toggle.on::after{left:23px;}
+.score-edit-row{display:flex;align-items:center;gap:.4em;margin-bottom:.4em;}
+.score-edit-row span{flex:1;font-size:.78rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.score-edit-row input{width:60px;padding:.3em;border-radius:8px;border:none;text-align:center;font-weight:800;color:var(--ink);}
+.pp-answers{font-size:.75rem;line-height:1.5;background:rgba(255,255,255,.06);padding:.6em;border-radius:8px;max-height:140px;overflow:auto;}
+
+/* ============================================================
+   SECTION: CONFETTI CANVAS
+   ============================================================ */
+#confettiCanvas{position:fixed;inset:0;z-index:70;pointer-events:none;}
+
+/* ============================================================
+   SECTION: RESPONSIVE TWEAKS
+   ============================================================ */
+@media (max-width:820px){
+  .hints-grid{grid-template-columns:repeat(2,1fr);}
+  #score-strip{flex-wrap:wrap;}
+  .chip{min-width:30%;}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= STAGE BACKGROUND ================= -->
+<div id="stage-bg">
+  <div class="spot spot1"></div>
+  <div class="spot spot2"></div>
+  <div class="spot spot3"></div>
+  <div class="stripes"></div>
+  <div class="floor"></div>
+</div>
+
+<canvas id="confettiCanvas"></canvas>
+
+<div id="app">
+  <!-- ================= TOP SCOREBOARD BAR ================= -->
+  <div id="topbar" style="display:none;">
+    <div class="brand">เปิดคำใบ้ ปิดดีล<small>CK GAME SHOW</small></div>
+    <div id="score-strip"></div>
+  </div>
+  <div id="roundlabel" style="display:none;"></div>
+
+  <!-- ================= MAIN STAGE ================= -->
+  <div id="stage"></div>
+
+  <!-- ================= HOST CONTROL BAR ================= -->
+  <div id="hostbar" style="display:none;"></div>
+</div>
+
+<!-- ================= TECHNIQUES MODAL ================= -->
+<div id="techModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h2>💡 5 เทคนิคปิดดีลลูกค้า</h2>
+    <div class="tech-grid" id="techGrid"></div>
+    <button class="btn btn-accent modal-close" onclick="closeTechModal()">ปิดหน้าต่าง</button>
+  </div>
+</div>
+
+<!-- ================= PRACTICE / MC PANEL ================= -->
+<div id="practicePanel">
+  <h2>⚙ โหมด MC (Practice)
+    <button class="btn btn-sm btn-ghost" onclick="togglePractice(false)">✕</button>
+  </h2>
+  <div class="pp-note">แผงนี้สำหรับ MC เท่านั้น ควรปิดก่อนฉายให้ผู้เล่นเห็นคำเฉลย</div>
+
+  <div class="pp-section">
+    <h3>เสียง / เอฟเฟกต์</h3>
+    <div class="pp-row">🔊 เปิดเสียง <div class="toggle" id="toggleSound" onclick="setSound(!state.soundOn)"></div></div>
+    <div class="pp-row">⏱ นับถอยหลัง Round 2 <div class="toggle" id="toggleCountdown" onclick="setCountdown(!state.countdownOn)"></div></div>
+    <div class="pp-row">🎉 Confetti <div class="toggle" id="toggleConfetti" onclick="setConfetti(!state.confettiOn)"></div></div>
+  </div>
+
+  <div class="pp-section">
+    <h3>นำทางเกม (MC)</h3>
+    <div class="hostrow" style="justify-content:flex-start;">
+      <button class="btn btn-sm btn-ghost" onclick="skipQuestion()">⏭ ข้ามข้อนี้</button>
+      <button class="btn btn-sm btn-ghost" onclick="resetCurrentRound()">🔁 รีเซ็ตเฉพาะรอบนี้</button>
+    </div>
+  </div>
+
+  <div class="pp-section">
+    <h3>แก้ไขคะแนนทีม</h3>
+    <div id="scoreEditList"></div>
+  </div>
+
+  <div class="pp-section">
+    <h3>ดูเฉลยทั้งหมด (MC only)</h3>
+    <div class="pp-answers" id="ppAnswerBox"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SECTION: JAVASCRIPT — GAME DATA
+     ============================================================ -->
+<script>
+"use strict";
+
+/* ---------- Round 1 data ---------- */
+const R1_DATA = [
+  {
+    situation: "“ลูกค้าเริ่มสายด้วยน้ำเสียงแข็ง ๆ และพูดว่า ‘โทรมาทำไมอีก?’”",
+    hints: [
+      "ยังไม่ควรรีบขาย",
+      "สิ่งแรกที่ลูกค้ารับรู้คือ “น้ำเสียง”",
+      "ต่อให้ลูกค้ามองไม่เห็นหน้า แต่สัมผัสอารมณ์ได้",
+      "ต้องเริ่มด้วยความสุภาพ นุ่มนวล และจริงใจ"
+    ],
+    answer: "เทคนิคข้อ 1: เสียงแรกต้องว้าว",
+    mcNote: "ต้นสายดี มีชัยไปกว่าครึ่ง ลูกค้ายังไม่เห็นหน้าเรา แต่เขารู้สึกได้จากเสียง"
+  },
+  {
+    situation: "“ลูกค้าถามทันทีว่า ‘ได้วงเงินเท่าไหร่ ดอกเท่าไหร่?’”",
+    hints: [
+      "อย่าเพิ่งรีบเทข้อมูล",
+      "ต้องรู้ก่อนว่าลูกค้าใช้เงินไปทำอะไร",
+      "นักขายเก่ง ไม่ใช่แค่เสนอเก่ง",
+      "ต้องถามเก่งก่อน"
+    ],
+    answer: "เทคนิคข้อ 2: ถามก่อนขาย",
+    mcNote: "ถามให้ตรงก่อนเสนอ จะช่วยให้เราแนะนำได้แม่นขึ้น และลูกค้ารู้สึกว่าเราเข้าใจเขาจริง ๆ"
+  },
+  {
+    situation: "“ลูกค้าบอกว่า ‘เคยสมัครแล้วไม่ผ่าน ไม่อยากเสียเวลา’”",
+    hints: [
+      "ลูกค้ามีประสบการณ์ไม่ดีมาก่อน",
+      "ถ้าตอบเร็วเกินไป ลูกค้าอาจยิ่งไม่มั่นใจ",
+      "ต้องรับรู้ความรู้สึกลูกค้าก่อน",
+      "ฟังให้จบ แล้วค่อยให้ข้อมูลเบื้องต้น"
+    ],
+    answer: "เทคนิคข้อ 3: ฟังก่อนสวน",
+    mcNote: "บางครั้งลูกค้าไม่ได้ปฏิเสธเรา แต่เขากำลังป้องกันตัวเองจากประสบการณ์เดิม"
+  },
+  {
+    situation: "“ลูกค้าพูดว่า ‘กลัวผ่อนไม่ไหว เพราะช่วงนี้รายจ่ายเยอะ’”",
+    hints: [
+      "มีคำสำคัญซ่อนอยู่",
+      "อย่าข้ามคำที่ลูกค้าพูด",
+      "ใช้คำของลูกค้ากลับไปตอบ",
+      "เช่น “เข้าใจค่ะ พี่กังวลเรื่องผ่อนไม่ไหวใช่ไหมคะ”"
+    ],
+    answer: "เทคนิคข้อ 4: ทวนคำให้โดนใจ",
+    mcNote: "การทวนคำ ไม่ใช่การพูดซ้ำ แต่คือการบอกลูกค้าว่า เราฟังเขาจริง ๆ"
+  },
+  {
+    situation: "“ลูกค้าถามหลายครั้งว่า ‘แน่ใจนะว่าจะผ่านไหม มีอะไรต้องกังวลไหม?’”",
+    hints: [
+      "ลูกค้าไม่ได้ถามเพราะไม่เข้าใจอย่างเดียว",
+      "ลูกค้ากำลังต้องการความสบายใจ",
+      "ข้อมูลอย่างเดียวอาจยังไม่พอ",
+      "ต้องช่วยให้ลูกค้ารู้สึกมั่นใจในการตัดสินใจ"
+    ],
+    answer: "เทคนิคข้อ 5: มั่นใจก่อนตัดสินใจ",
+    mcNote: "ลูกค้าบางคนไม่ได้ต้องการคำตอบที่เร็วที่สุด แต่ต้องการคำตอบที่ทำให้สบายใจที่สุด"
+  }
+];
+
+/* ---------- Round 2 data ---------- */
+const R2_DATA = [
+  { quote: "ตอนนี้ยังไม่สะดวกคุย โทรมาทำไมบ่อย ๆ", answer: "เทคนิคข้อ 1: เสียงแรกต้องว้าว", note: "" },
+  { quote: "ขอรู้ยอดผ่อนเลยได้ไหม", answer: "เทคนิคข้อ 2: ถามก่อนขาย", note: "" },
+  { quote: "เคยทำแล้วไม่ผ่าน เสียความรู้สึกมาก", answer: "เทคนิคข้อ 3: ฟังก่อนสวน", note: "" },
+  { quote: "พี่กลัวติดเครดิต กลัวเสียประวัติ", answer: "เทคนิคข้อ 4: ทวนคำให้โดนใจ", note: "" },
+  { quote: "บริษัทนี้เชื่อถือได้ไหม", answer: "เทคนิคข้อ 5: มั่นใจก่อนตัดสินใจ", note: "" },
+  { quote: "ไม่เข้าใจเงื่อนไขเลย งงไปหมด", answer: "เทคนิคข้อ 5: มั่นใจก่อนตัดสินใจ", note: "รับคำตอบข้อ 3 (ฟังก่อนสวน) ได้ด้วย ถ้า Host เห็นว่าทีมอธิบายได้ดี" }
+];
+
+/* ---------- Final round data ---------- */
+const FINAL_DATA = {
+  situation: "ลูกค้าพูดว่า: “พี่เคยสมัครสินเชื่อแล้วไม่ผ่านนะ แล้วช่วงนี้ก็กลัวผ่อนไม่ไหวด้วย ไม่แน่ใจว่าจะลองดีไหม”",
+  q1: {
+    title: "คำถามที่ 1: สถานการณ์นี้ควรใช้เทคนิคหลักข้อไหน?",
+    options: [
+      { k: "A", t: "เสียงแรกต้องว้าว" },
+      { k: "B", t: "ฟังก่อนสวน" },
+      { k: "C", t: "ทวนคำให้โดนใจ" },
+      { k: "D", t: "มั่นใจก่อนตัดสินใจ" }
+    ],
+    accept: ["B", "C", "D"],
+    recommended: "B (ฟังก่อนสวน) หรือ C (ทวนคำให้โดนใจ)"
+  },
+  q2: {
+    title: "คำถามที่ 2: ประโยคไหนเหมาะที่สุด?",
+    options: [
+      { k: "A", t: "“สมัครเลยค่ะ เดี๋ยวระบบพิจารณาเอง”" },
+      { k: "B", t: "“เข้าใจค่ะ พี่กังวลทั้งเรื่องเคยไม่ผ่าน และกลัวผ่อนไม่ไหว งั้นหนูขอช่วยดูข้อมูลเบื้องต้นก่อนนะคะ ว่าแบบไหนเหมาะกับพี่ที่สุด”" },
+      { k: "C", t: "“ไม่ต้องกังวลค่ะ ผ่านแน่นอน”" }
+    ],
+    correct: "B"
+  },
+  keyTakeaway: "ประโยคที่ดีต้องฟังความรู้สึก ทวนความกังวล และสร้างความมั่นใจ โดยไม่รับปากเกินจริง"
+};
+
+/* ---------- 5 techniques reference ---------- */
+const TECH_DATA = [
+  { num: 1, title: "เสียงแรกต้องว้าว", desc: "ยิ้มก่อนโทร น้ำเสียงดี สร้างความประทับใจตั้งแต่ต้นสาย" },
+  { num: 2, title: "ถามก่อนขาย", desc: "นักขายที่เก่งไม่ได้แค่เสนอเก่ง แต่ต้องถามเก่ง" },
+  { num: 3, title: "ฟังก่อนสวน", desc: "ฟังลูกค้าให้จบ เข้าใจความรู้สึก ก่อนให้ข้อมูล" },
+  { num: 4, title: "ทวนคำให้โดนใจ", desc: "Echo คำสำคัญของลูกค้า เพื่อให้ลูกค้ารู้ว่าเราฟังจริง" },
+  { num: 5, title: "มั่นใจก่อนตัดสินใจ", desc: "ลูกค้าไม่ได้ต้องการแค่ข้อมูล แต่ต้องการความมั่นใจก่อนตัดสินใจ" }
+];
+
+/* ---------- Core value taglines (shown as small badge) ---------- */
+const CORE_VALUES = [
+  "ซื่อสัตย์ จริงใจ และเป็นกันเอง",
+  "ร่วมมือร่วมใจ ตรงไปตรงมา",
+  "กระหายเรียนรู้",
+  "กล้าคิด กล้าลอง",
+  "ทำงานเต็มที่ ปาร์ตี้ให้สุด"
+];
+
+const DEFAULT_TEAM_NAMES = [
+  "ทีมปิดไว",
+  "ทีมเข้าใจลูกค้า",
+  "ทีมเสียงว้าว",
+  "ทีมฟังแล้วปิด",
+  "ทีมมั่นใจค่ะ"
+];
+
+/* ============================================================
+   SECTION: JAVASCRIPT — STATE
+   ============================================================ */
+let state = {
+  teams: DEFAULT_TEAM_NAMES.map(n => ({ name: n, score: 0 })),
+  screen: "welcome",      // 'welcome' | 'game'
+  stepIndex: 0,
+  soundOn: true,
+  countdownOn: true,
+  confettiOn: true,
+  practiceOpen: false,
+  keySelectedTeam: null,
+  winnerConfettiFired: false
+};
+
+let steps = [];
+let audioCtx = null;
+let countdownTimer = null;
+let confettiRunning = false;
+
+/* ============================================================
+   SECTION: JAVASCRIPT — BUILD STEP SEQUENCE
+   ============================================================ */
+function buildSteps() {
+  const s = [];
+  s.push({ type: "banner", round: 1, title: "รอบที่ 1: เปิดป้ายทายเทคนิค", desc: "เปิดคำใบ้ทีละใบ ยิ่งเปิดน้อย ยิ่งได้คะแนนเยอะ!" });
+  R1_DATA.forEach((q, i) => s.push({ type: "r1", round: 1, data: q, num: i + 1, state: { hints: 0, answerShown: false, awardedTeam: null, awardedPoints: 0 } }));
+  s.push({ type: "banner", round: 2, title: "รอบที่ 2: ลูกค้าพลิกล็อก", desc: "ตอบไวภายใน 5 วินาที ชูนิ้วบอกคำตอบ!" });
+  R2_DATA.forEach((q, i) => s.push({ type: "r2", round: 2, data: q, num: i + 1, state: { countdownRunning: false, countdownVal: 5, answerShown: false, selected: [], awarded: [] } }));
+  s.push({ type: "banner", round: 3, title: "Final Round: Jackpot ปิดใจลูกค้า", desc: "โจทย์ใหญ่ 2 คำถาม ลุ้นแจ็คพอต 10 คะแนน!" });
+  s.push({ type: "final", round: 3, state: { q1Shown: false, q2Shown: false, selected: [] } });
+  s.push({ type: "winner", round: 4 });
+  return s;
+}
+
+function pointsForHints(n) {
+  if (n <= 1) return 5;
+  if (n === 2) return 4;
+  if (n === 3) return 3;
+  return 2;
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — AUDIO (Web Audio API synth, no files)
+   ============================================================ */
+function ensureAudio() {
+  if (!state.soundOn) return null;
+  if (!audioCtx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new Ctx();
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+function tone(ctx, freq, start, dur, type, gain) {
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = type || "sine";
+  osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+  g.gain.setValueAtTime(0.0001, ctx.currentTime + start);
+  g.gain.exponentialRampToValueAtTime(gain || 0.22, ctx.currentTime + start + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+  osc.connect(g).connect(ctx.destination);
+  osc.start(ctx.currentTime + start);
+  osc.stop(ctx.currentTime + start + dur + 0.02);
+}
+function playCorrect() {
+  const ctx = ensureAudio(); if (!ctx) return;
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(ctx, f, i * 0.09, 0.22, "triangle", 0.25));
+}
+function playWrong() {
+  const ctx = ensureAudio(); if (!ctx) return;
+  tone(ctx, 220, 0, 0.28, "sawtooth", 0.22);
+  tone(ctx, 160, 0.14, 0.32, "sawtooth", 0.22);
+}
+function playReveal() {
+  const ctx = ensureAudio(); if (!ctx) return;
+  const osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(300, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.25);
+  g.gain.setValueAtTime(0.2, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.28);
+  osc.connect(g).connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 0.3);
+}
+function playTick() {
+  const ctx = ensureAudio(); if (!ctx) return;
+  tone(ctx, 880, 0, 0.09, "square", 0.15);
+}
+function playBuzzer() {
+  const ctx = ensureAudio(); if (!ctx) return;
+  tone(ctx, 140, 0, 0.5, "sawtooth", 0.25);
+}
+function playJackpot() {
+  const ctx = ensureAudio(); if (!ctx) return;
+  [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => tone(ctx, f, i * 0.11, 0.35, "triangle", 0.28));
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — CONFETTI
+   ============================================================ */
+function launchConfetti(duration) {
+  if (!state.confettiOn) return;
+  const canvas = document.getElementById("confettiCanvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  const colors = ["#FFC72C", "#E31937", "#123C94", "#ffffff", "#1FBF5C"];
+  const particles = [];
+  const N = 160;
+  for (let i = 0; i < N; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: -20 - Math.random() * canvas.height * 0.5,
+      w: 6 + Math.random() * 8,
+      h: 8 + Math.random() * 10,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      vy: 2 + Math.random() * 3.5,
+      vx: -1.5 + Math.random() * 3,
+      rot: Math.random() * Math.PI,
+      vrot: -0.2 + Math.random() * 0.4
+    });
+  }
+  confettiRunning = true;
+  const endTime = performance.now() + (duration || 3500);
+  function frame(now) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.rot += p.vrot;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    });
+    if (now < endTime) {
+      requestAnimationFrame(frame);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      confettiRunning = false;
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — RENDER: TOPBAR & ROUND LABEL
+   ============================================================ */
+function renderTopbar() {
+  const topbar = document.getElementById("topbar");
+  const roundlabel = document.getElementById("roundlabel");
+  if (state.screen !== "game") { topbar.style.display = "none"; roundlabel.style.display = "none"; return; }
+  topbar.style.display = "flex";
+  roundlabel.style.display = "block";
+
+  const maxScore = Math.max(...state.teams.map(t => t.score));
+  const leaders = state.teams.filter(t => t.score === maxScore && maxScore > 0).length;
+
+  const strip = document.getElementById("score-strip");
+  strip.innerHTML = state.teams.map((t, i) => {
+    const isLeader = t.score === maxScore && maxScore > 0 && leaders === 1;
+    const keySel = state.keySelectedTeam === i ? "key-selected" : "";
+    return `<div class="chip ${isLeader ? "leading" : ""} ${keySel}" id="chip-${i}">
+      <div class="cname">${escapeHtml(t.name)}</div>
+      <div class="cscore">${t.score}</div>
+    </div>`;
+  }).join("");
+
+  const step = steps[state.stepIndex];
+  const roundNames = { 1: "รอบที่ 1 · เปิดป้ายทายเทคนิค", 2: "รอบที่ 2 · ลูกค้าพลิกล็อก", 3: "Final Round · Jackpot ปิดใจลูกค้า", 4: "🏆 ประกาศผลผู้ชนะ" };
+  roundlabel.textContent = step ? (roundNames[step.round] || "") : "";
+}
+
+function pulseTeam(idx) {
+  const el = document.getElementById("chip-" + idx);
+  if (!el) return;
+  el.classList.add("pulse");
+  setTimeout(() => el.classList.remove("pulse"), 600);
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — RENDER: WELCOME SCREEN
+   ============================================================ */
+function renderWelcome() {
+  document.getElementById("topbar").style.display = "none";
+  document.getElementById("roundlabel").style.display = "none";
+  document.getElementById("hostbar").style.display = "none";
+
+  const stage = document.getElementById("stage");
+  stage.innerHTML = `
+    <div class="screen welcome-wrap">
+      <div class="game-title">เปิดคำใบ้ ปิดดีล</div>
+      <div class="game-sub">CK <span>GAME SHOW</span></div>
+      <div class="welcome-actions">
+        <button class="btn btn-accent btn-lg" onclick="startGame()">▶ Start Game</button>
+        <button class="btn btn-ghost btn-lg" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+        <button class="btn btn-ghost btn-lg" onclick="openTechModal()">💡 5 เทคนิคขาย</button>
+      </div>
+      <div class="team-edit-grid">
+        ${state.teams.map((t, i) => `
+          <div class="team-edit-item">
+            <label>ทีมที่ ${i + 1}</label>
+            <input type="text" value="${escapeHtml(t.name)}" oninput="renameTeam(${i}, this.value)" maxlength="24">
+          </div>
+        `).join("")}
+      </div>
+      <div style="margin-top:2.4vh;opacity:.75;font-size:clamp(.75rem,1vw,1rem);">
+        กด F เพื่อสลับ Fullscreen ได้ตลอดเกม · ปุ่มทั้งหมดควบคุมโดย Host / MC
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — RENDER: ROUND BANNER
+   ============================================================ */
+function renderBanner(step) {
+  return `
+    <div class="screen round-banner">
+      <div class="rb-eyebrow">แนะนำรอบถัดไป</div>
+      <h1>${step.title}</h1>
+      <p>${step.desc}</p>
+    </div>
+  `;
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — RENDER: ROUND 1
+   ============================================================ */
+function renderR1(step) {
+  const d = step.data, st = step.state;
+  const hintsHtml = d.hints.map((h, i) => {
+    const revealed = st.hints > i;
+    return `
+      <div class="hint-card ${revealed ? "revealed" : ""}">
+        <div class="hint-card-inner">
+          <div class="hint-face hint-front">
+            <div class="hnum">${i + 1}</div>
+            <div class="hlock">🔒</div>
+          </div>
+          <div class="hint-face hint-back">
+            <div class="hnum2">คำใบ้ที่ ${i + 1}</div>
+            <p>${escapeHtml(h)}</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  const teamButtons = state.teams.map((t, i) => {
+    const awarded = st.awardedTeam === i;
+    const disabled = st.hints < 1 || (st.awardedTeam !== null && !awarded);
+    return `<button class="team-pick-btn ${awarded ? "awarded" : ""}" ${disabled ? "disabled" : ""} onclick="awardR1(${i})">${escapeHtml(t.name)}${awarded ? " ✓+" + st.awardedPoints : ""}</button>`;
+  }).join("");
+
+  return `
+    <div class="screen">
+      <div class="card">
+        <div class="q-index">ข้อที่ ${step.num} / ${R1_DATA.length}</div>
+        <div class="situation-box">สถานการณ์: ${d.situation}</div>
+        <div class="hints-grid">${hintsHtml}</div>
+        ${st.answerShown ? `
+          <div class="answer-box">
+            <div class="ans-title">✅ เฉลย: ${escapeHtml(d.answer)}</div>
+            <div class="mc-note">MC Note: “${escapeHtml(d.mcNote)}”</div>
+          </div>
+        ` : ""}
+        <div class="award-row">
+          <div class="aw-label">ทีมที่ตอบถูก (ให้คะแนนอัตโนมัติตามจำนวนคำใบ้ที่เปิด: เปิด 1=5, 2=4, 3=3, 4=2 คะแนน)</div>
+          ${teamButtons}
+          <button class="btn btn-sm btn-danger" onclick="flashWrong()">❌ ตอบผิด (เอฟเฟกต์)</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — RENDER: ROUND 2
+   ============================================================ */
+function renderR2(step) {
+  const d = step.data, st = step.state;
+  const teamButtons = state.teams.map((t, i) => {
+    const sel = st.selected.includes(i);
+    const awarded = st.awarded.includes(i);
+    return `<button class="team-pick-btn ${sel ? "selected" : ""} ${awarded ? "awarded" : ""}" ${awarded ? "disabled" : ""} onclick="toggleR2Team(${i})">${escapeHtml(t.name)}${awarded ? " ✓+3" : ""}</button>`;
+  }).join("");
+
+  return `
+    <div class="screen">
+      <div class="card">
+        <div class="q-index">ข้อที่ ${step.num} / ${R2_DATA.length} — ตอบภายใน 5 วินาที!</div>
+        <div class="quote-box">${escapeHtml(d.quote)}</div>
+        <div class="countdown-wrap">
+          ${state.countdownOn ? `
+            <div class="countdown-num ${st.tickFlash ? "tick" : ""}" id="cdnum">${st.countdownRunning ? st.countdownVal : "5"}</div>
+            <button class="btn btn-primary" ${st.countdownRunning ? "disabled" : ""} onclick="startCountdown()">⏱ เริ่มนับถอยหลัง</button>
+          ` : `<div style="font-size:1.3rem;font-weight:800;color:var(--yellow);">🔔 ตอบเลย! (ปิดโหมดนับถอยหลัง)</div>`}
+        </div>
+        ${st.answerShown ? `
+          <div class="answer-box">
+            <div class="ans-title">✅ เฉลย: ${escapeHtml(d.answer)}</div>
+            ${d.note ? `<div class="mc-note">หมายเหตุ: ${escapeHtml(d.note)}</div>` : ""}
+          </div>
+        ` : ""}
+        <div class="award-row">
+          <div class="aw-label">เลือกทีมที่ตอบถูก (เลือกได้หลายทีม) แล้วกด Award Points (+3/ทีม)</div>
+          ${teamButtons}
+        </div>
+        <div class="award-row">
+          <button class="btn btn-green" onclick="awardR2Selected()">🏆 Award 3 Points ให้ทีมที่เลือก</button>
+          <button class="btn btn-sm btn-danger" onclick="flashWrong()">❌ ตอบผิด (เอฟเฟกต์)</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — RENDER: FINAL ROUND
+   ============================================================ */
+function renderFinal(step) {
+  const st = step.state;
+  const teamButtons = state.teams.map((t, i) => {
+    const sel = st.selected.includes(i);
+    return `<button class="team-pick-btn ${sel ? "selected" : ""}" onclick="toggleFinalTeam(${i})">${escapeHtml(t.name)}</button>`;
+  }).join("");
+
+  function optList(opts, correctKeys) {
+    return `<div class="opt-list">${opts.map(o => `
+      <div class="opt-item ${correctKeys && correctKeys.includes(o.k) ? "correct" : ""}">
+        <span class="k">${o.k}.</span><span>${escapeHtml(o.t)}</span>
+      </div>`).join("")}</div>`;
+  }
+
+  return `
+    <div class="screen">
+      <div class="card">
+        <div class="q-index">🎯 Final Round — Jackpot ปิดใจลูกค้า</div>
+        <div class="final-situation">${FINAL_DATA.situation}</div>
+
+        <div class="mc-block">
+          <h3>${FINAL_DATA.q1.title}</h3>
+          ${optList(FINAL_DATA.q1.options, st.q1Shown ? FINAL_DATA.q1.accept : null)}
+          ${st.q1Shown ? `<div class="answer-box"><div class="ans-title">✅ แนะนำ: ${escapeHtml(FINAL_DATA.q1.recommended)}</div><div class="mc-note">รับคำตอบ B, C หรือ D ได้ ถ้าทีมอธิบายเหตุผลดี</div></div>` : `<button class="btn btn-sm btn-primary" style="margin-top:.6em;" onclick="showFinalQ1()">Show Answer ข้อ 1</button>`}
+        </div>
+
+        <div class="mc-block">
+          <h3>${FINAL_DATA.q2.title}</h3>
+          ${optList(FINAL_DATA.q2.options, st.q2Shown ? [FINAL_DATA.q2.correct] : null)}
+          ${st.q2Shown ? `<div class="answer-box"><div class="ans-title">✅ คำตอบ: B</div></div>` : `<button class="btn btn-sm btn-primary" style="margin-top:.6em;" onclick="showFinalQ2()">Show Answer ข้อ 2</button>`}
+        </div>
+
+        ${st.q1Shown && st.q2Shown ? `<div class="takeaway-box">💡 Key Takeaway: ${escapeHtml(FINAL_DATA.keyTakeaway)}</div>` : ""}
+
+        <div class="award-row">
+          <div class="aw-label">เลือกทีมที่ตอบถูก แล้วให้คะแนน</div>
+          ${teamButtons}
+        </div>
+        <div class="award-row">
+          <button class="btn btn-primary" onclick="awardFinal(5)">+5 ถูกข้อ 1</button>
+          <button class="btn btn-primary" onclick="awardFinal(5)">+5 ถูกข้อ 2</button>
+          <button class="btn btn-accent btn-lg" onclick="awardFinalJackpot()">🎉 JACKPOT +10 (ถูกทั้ง 2 ข้อ)</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — RENDER: WINNER SCREEN
+   ============================================================ */
+function renderWinner() {
+  const ranked = state.teams.map((t, i) => ({ ...t, idx: i })).sort((a, b) => b.score - a.score);
+  const champ = ranked[0];
+
+  if (!state.winnerConfettiFired) {
+    state.winnerConfettiFired = true;
+    launchConfetti(5000);
+    playJackpot();
+  }
+
+  return `
+    <div class="screen winner-wrap">
+      <div class="winner-trophy">🏆</div>
+      <div class="winner-team">${escapeHtml(champ.name)}</div>
+      <div class="winner-score">${champ.score} คะแนน</div>
+      <div class="winner-msg">🎉 ขอแสดงความยินดีกับทีมแชมป์ CK นักปิดใจลูกค้า! 🎉</div>
+      <div class="ranking-list">
+        ${ranked.map((t, i) => `<div class="rank-row ${i === 0 ? "r1" : ""}"><span>#${i + 1} ${escapeHtml(t.name)}</span><span>${t.score} คะแนน</span></div>`).join("")}
+      </div>
+      <div class="closing-line">“ฟังให้เข้าใจ ขายด้วยความจริงใจ ไปให้สุดแบบ CK!”</div>
+      <div class="welcome-actions">
+        <button class="btn btn-accent btn-lg" onclick="playAgain()">🔄 Play Again</button>
+        <button class="btn btn-ghost" onclick="launchConfetti(4000)">🎊 ยิง Confetti อีกครั้ง</button>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — RENDER: HOST BAR (context-aware)
+   ============================================================ */
+function renderHostbar() {
+  const hostbar = document.getElementById("hostbar");
+  if (state.screen !== "game") { hostbar.style.display = "none"; return; }
+  hostbar.style.display = "flex";
+  const step = steps[state.stepIndex];
+
+  let context = "";
+  if (step.type === "r1") {
+    const st = step.state;
+    context = `
+      <span class="hb-label">คำใบ้:</span>
+      <button class="btn btn-sm btn-primary" ${st.hints >= 1 ? "disabled" : ""} onclick="revealHint(1)">Reveal Hint 1</button>
+      <button class="btn btn-sm btn-primary" ${st.hints >= 2 || st.hints < 1 ? "disabled" : ""} onclick="revealHint(2)">Reveal Hint 2</button>
+      <button class="btn btn-sm btn-primary" ${st.hints >= 3 || st.hints < 2 ? "disabled" : ""} onclick="revealHint(3)">Reveal Hint 3</button>
+      <button class="btn btn-sm btn-primary" ${st.hints >= 4 || st.hints < 3 ? "disabled" : ""} onclick="revealHint(4)">Reveal Hint 4</button>
+      <button class="btn btn-sm btn-accent" onclick="showAnswer()">Show Answer</button>
+    `;
+  } else if (step.type === "r2") {
+    context = `<button class="btn btn-sm btn-accent" onclick="showAnswer()">Show Answer</button>`;
+  } else if (step.type === "final") {
+    context = `<button class="btn btn-sm btn-accent" onclick="showAnswer()">Show Answer (ทั้ง 2 ข้อ)</button>`;
+  }
+
+  hostbar.innerHTML = `
+    <div class="hostrow util">
+      <div class="grp">
+        <button class="btn btn-sm btn-ghost" onclick="togglePractice(true)">⚙ Practice Mode (MC)</button>
+        <button class="btn btn-sm btn-ghost" onclick="openTechModal()">💡 5 เทคนิคขาย</button>
+      </div>
+      <div class="grp">
+        <button class="btn btn-sm btn-ghost" onclick="setSound(!state.soundOn)">${state.soundOn ? "🔊" : "🔇"} เสียง</button>
+        <button class="btn btn-sm btn-ghost" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+        <button class="btn btn-sm btn-danger" onclick="resetGame()">🔁 Reset Game</button>
+      </div>
+    </div>
+    <div class="hostrow">
+      <button class="btn btn-primary" ${state.stepIndex <= 0 ? "disabled" : ""} onclick="prevStep()">◀ Back</button>
+      ${context}
+      <button class="btn btn-primary" ${state.stepIndex >= steps.length - 1 ? "disabled" : ""} onclick="nextStep()">Next ▶</button>
+    </div>
+  `;
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — MAIN RENDER DISPATCH
+   ============================================================ */
+function render() {
+  renderTopbar();
+
+  if (state.screen === "welcome") {
+    renderWelcome();
+  } else {
+    const step = steps[state.stepIndex];
+    const stage = document.getElementById("stage");
+    let html = "";
+    if (step.type === "banner") html = renderBanner(step);
+    else if (step.type === "r1") html = renderR1(step);
+    else if (step.type === "r2") html = renderR2(step);
+    else if (step.type === "final") html = renderFinal(step);
+    else if (step.type === "winner") html = renderWinner();
+    stage.innerHTML = html + `<div class="badge-tag">🏅 ${escapeHtml(coreValueForStep(step))}</div>`;
+    renderHostbar();
+  }
+  renderPracticePanel();
+}
+
+function coreValueForStep(step) {
+  if (!step) return CORE_VALUES[0];
+  if (step.round === 1) return CORE_VALUES[2];
+  if (step.round === 2) return CORE_VALUES[3];
+  if (step.round === 3) return CORE_VALUES[4];
+  if (step.round === 4) return CORE_VALUES[1];
+  return CORE_VALUES[0];
+}
+
+function escapeHtml(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — GAME ACTIONS: NAVIGATION
+   ============================================================ */
+function startGame() {
+  ensureAudio();
+  state.screen = "game";
+  state.stepIndex = 0;
+  render();
+}
+function nextStep() {
+  if (state.stepIndex < steps.length - 1) {
+    state.stepIndex++;
+    state.keySelectedTeam = null;
+    render();
+  }
+}
+function prevStep() {
+  if (state.stepIndex > 0) {
+    state.stepIndex--;
+    state.keySelectedTeam = null;
+    render();
+  }
+}
+function skipQuestion() { nextStep(); }
+
+/* ============================================================
+   SECTION: JAVASCRIPT — GAME ACTIONS: ROUND 1
+   ============================================================ */
+function revealHint(n) {
+  const step = steps[state.stepIndex];
+  if (step.type !== "r1") return;
+  if (step.state.hints < n) {
+    step.state.hints = n;
+    playReveal();
+    render();
+  }
+}
+function showAnswer() {
+  const step = steps[state.stepIndex];
+  if (step.type === "r1") {
+    step.state.answerShown = true;
+    if (step.state.hints < 1) step.state.hints = 1;
+  } else if (step.type === "r2") {
+    step.state.answerShown = true;
+    if (step.state.countdownRunning) stopCountdown();
+  } else if (step.type === "final") {
+    step.state.q1Shown = true;
+    step.state.q2Shown = true;
+  } else return;
+  playReveal();
+  render();
+}
+function awardR1(teamIdx) {
+  const step = steps[state.stepIndex];
+  if (step.type !== "r1") return;
+  const st = step.state;
+  if (st.hints < 1 || st.awardedTeam !== null) return;
+  const pts = pointsForHints(st.hints);
+  state.teams[teamIdx].score += pts;
+  st.awardedTeam = teamIdx;
+  st.awardedPoints = pts;
+  playCorrect();
+  render();
+  pulseTeam(teamIdx);
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — GAME ACTIONS: ROUND 2
+   ============================================================ */
+function startCountdown() {
+  const step = steps[state.stepIndex];
+  if (step.type !== "r2" || step.state.countdownRunning) return;
+  step.state.countdownRunning = true;
+  step.state.countdownVal = 5;
+  render();
+  countdownTimer = setInterval(() => {
+    step.state.countdownVal--;
+    step.state.tickFlash = true;
+    if (step.state.countdownVal <= 0) {
+      clearInterval(countdownTimer);
+      step.state.countdownRunning = false;
+      playBuzzer();
+      render();
+      return;
+    }
+    playTick();
+    render();
+    setTimeout(() => { step.state.tickFlash = false; }, 300);
+  }, 1000);
+}
+function stopCountdown() {
+  if (countdownTimer) clearInterval(countdownTimer);
+  const step = steps[state.stepIndex];
+  if (step && step.type === "r2") step.state.countdownRunning = false;
+}
+function toggleR2Team(idx) {
+  const step = steps[state.stepIndex];
+  if (step.type !== "r2") return;
+  const st = step.state;
+  if (st.awarded.includes(idx)) return;
+  const pos = st.selected.indexOf(idx);
+  if (pos >= 0) st.selected.splice(pos, 1); else st.selected.push(idx);
+  render();
+}
+function awardR2Selected() {
+  const step = steps[state.stepIndex];
+  if (step.type !== "r2") return;
+  const st = step.state;
+  if (st.selected.length === 0) return;
+  st.selected.forEach(idx => {
+    if (!st.awarded.includes(idx)) {
+      state.teams[idx].score += 3;
+      st.awarded.push(idx);
+      pulseTeam(idx);
+    }
+  });
+  st.selected = [];
+  playCorrect();
+  render();
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — GAME ACTIONS: FINAL ROUND
+   ============================================================ */
+function showFinalQ1() { const s = steps[state.stepIndex]; if (s.type === "final") { s.state.q1Shown = true; playReveal(); render(); } }
+function showFinalQ2() { const s = steps[state.stepIndex]; if (s.type === "final") { s.state.q2Shown = true; playReveal(); render(); } }
+function toggleFinalTeam(idx) {
+  const step = steps[state.stepIndex];
+  if (step.type !== "final") return;
+  const st = step.state;
+  const pos = st.selected.indexOf(idx);
+  if (pos >= 0) st.selected.splice(pos, 1); else st.selected.push(idx);
+  render();
+}
+function awardFinal(points) {
+  const step = steps[state.stepIndex];
+  if (step.type !== "final") return;
+  if (step.state.selected.length === 0) return;
+  step.state.selected.forEach(idx => { state.teams[idx].score += points; pulseTeam(idx); });
+  playCorrect();
+  render();
+}
+function awardFinalJackpot() {
+  const step = steps[state.stepIndex];
+  if (step.type !== "final") return;
+  if (step.state.selected.length === 0) return;
+  step.state.selected.forEach(idx => { state.teams[idx].score += 10; pulseTeam(idx); });
+  playJackpot();
+  launchConfetti(3000);
+  showJackpotBanner();
+  render();
+}
+function showJackpotBanner() {
+  const stage = document.getElementById("stage");
+  const banner = document.createElement("div");
+  banner.className = "jackpot-banner";
+  banner.textContent = "🎉 JACKPOT! +10 คะแนน 🎉";
+  banner.style.position = "fixed";
+  banner.style.top = "12%";
+  banner.style.left = "50%";
+  banner.style.transform = "translateX(-50%)";
+  banner.style.zIndex = "80";
+  document.body.appendChild(banner);
+  setTimeout(() => banner.remove(), 1800);
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — WRONG ANSWER EFFECT (no score change)
+   ============================================================ */
+function flashWrong() {
+  playWrong();
+  const stage = document.getElementById("stage");
+  stage.classList.add("stage-flash");
+  setTimeout(() => stage.classList.remove("stage-flash"), 500);
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — SCOREBOARD / TEAM NAME EDITING
+   ============================================================ */
+function renameTeam(idx, val) {
+  state.teams[idx].name = val;
+  renderPracticePanel();
+}
+function editScore(idx, val) {
+  const n = parseInt(val, 10);
+  state.teams[idx].score = isNaN(n) ? 0 : n;
+  render();
+}
+function adjustScore(idx, delta) {
+  state.teams[idx].score = Math.max(0, state.teams[idx].score + delta);
+  pulseTeam(idx);
+  render();
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — TOGGLES: SOUND / COUNTDOWN / CONFETTI
+   ============================================================ */
+function setSound(v) { state.soundOn = v; if (v) ensureAudio(); render(); }
+function setCountdown(v) { state.countdownOn = v; render(); }
+function setConfetti(v) { state.confettiOn = v; render(); }
+
+/* ============================================================
+   SECTION: JAVASCRIPT — FULLSCREEN
+   ============================================================ */
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — RESET / PLAY AGAIN
+   ============================================================ */
+function resetGame() {
+  if (!confirm("ต้องการ Reset เกมทั้งหมด (คะแนน + ชื่อทีมกลับเป็นค่าเริ่มต้น) ใช่หรือไม่?")) return;
+  state.teams = DEFAULT_TEAM_NAMES.map(n => ({ name: n, score: 0 }));
+  steps = buildSteps();
+  state.stepIndex = 0;
+  state.screen = "welcome";
+  state.winnerConfettiFired = false;
+  state.practiceOpen = false;
+  document.getElementById("practicePanel").classList.remove("open");
+  render();
+}
+function playAgain() {
+  state.teams.forEach(t => t.score = 0);
+  steps = buildSteps();
+  state.stepIndex = 0;
+  state.screen = "welcome";
+  state.winnerConfettiFired = false;
+  render();
+}
+function resetCurrentRound() {
+  const step = steps[state.stepIndex];
+  if (!step) return;
+  const roundNum = step.round;
+  let firstIdx = state.stepIndex;
+  steps.forEach((s, i) => {
+    if (s.round === roundNum) {
+      if (i < firstIdx) firstIdx = i;
+      if (s.type === "r1") s.state = { hints: 0, answerShown: false, awardedTeam: null, awardedPoints: 0 };
+      else if (s.type === "r2") { stopCountdown(); s.state = { countdownRunning: false, countdownVal: 5, answerShown: false, selected: [], awarded: [] }; }
+      else if (s.type === "final") s.state = { q1Shown: false, q2Shown: false, selected: [] };
+    }
+  });
+  state.stepIndex = firstIdx;
+  render();
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — TECHNIQUES MODAL
+   ============================================================ */
+function openTechModal() {
+  const grid = document.getElementById("techGrid");
+  grid.innerHTML = TECH_DATA.map(t => `
+    <div class="tech-card">
+      <div class="tnum">${t.num}</div>
+      <h3>${escapeHtml(t.title)}</h3>
+      <p>${escapeHtml(t.desc)}</p>
+    </div>
+  `).join("");
+  document.getElementById("techModal").classList.remove("hidden");
+}
+function closeTechModal() { document.getElementById("techModal").classList.add("hidden"); }
+
+/* ============================================================
+   SECTION: JAVASCRIPT — PRACTICE / MC PANEL
+   ============================================================ */
+function togglePractice(v) {
+  state.practiceOpen = v;
+  document.getElementById("practicePanel").classList.toggle("open", v);
+  renderPracticePanel();
+}
+function renderPracticePanel() {
+  document.getElementById("toggleSound").classList.toggle("on", state.soundOn);
+  document.getElementById("toggleCountdown").classList.toggle("on", state.countdownOn);
+  document.getElementById("toggleConfetti").classList.toggle("on", state.confettiOn);
+
+  const editList = document.getElementById("scoreEditList");
+  editList.innerHTML = state.teams.map((t, i) => `
+    <div class="score-edit-row">
+      <span>${escapeHtml(t.name)}</span>
+      <button class="btn btn-sm btn-ghost" onclick="adjustScore(${i},-1)">-1</button>
+      <input type="number" value="${t.score}" onchange="editScore(${i}, this.value)">
+      <button class="btn btn-sm btn-ghost" onclick="adjustScore(${i},1)">+1</button>
+    </div>
+  `).join("");
+
+  const ansBox = document.getElementById("ppAnswerBox");
+  if (state.screen === "game") {
+    const step = steps[state.stepIndex];
+    if (step && step.type === "r1") ansBox.textContent = "เฉลยข้อนี้: " + step.data.answer + " | " + step.data.mcNote;
+    else if (step && step.type === "r2") ansBox.textContent = "เฉลยข้อนี้: " + step.data.answer + (step.data.note ? " | " + step.data.note : "");
+    else if (step && step.type === "final") ansBox.textContent = "ข้อ1 แนะนำ: " + FINAL_DATA.q1.recommended + " | ข้อ2: B | " + FINAL_DATA.keyTakeaway;
+    else ansBox.textContent = "—";
+  } else {
+    ansBox.textContent = "—";
+  }
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — SCORING VIA KEYBOARD (1-5 select, + award)
+   ============================================================ */
+function genericAwardCurrent(teamIdx) {
+  const step = steps[state.stepIndex];
+  if (!step) return;
+  if (step.type === "r1") { awardR1(teamIdx); }
+  else if (step.type === "r2") {
+    if (!step.state.awarded.includes(teamIdx)) {
+      state.teams[teamIdx].score += 3;
+      step.state.awarded.push(teamIdx);
+      pulseTeam(teamIdx);
+      playCorrect();
+      render();
+    }
+  } else if (step.type === "final") {
+    state.teams[teamIdx].score += 5;
+    pulseTeam(teamIdx);
+    playCorrect();
+    render();
+  }
+}
+
+/* ============================================================
+   SECTION: JAVASCRIPT — KEYBOARD SHORTCUTS
+   ============================================================ */
+document.addEventListener("keydown", (e) => {
+  const tag = document.activeElement.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+  if (e.code === "Space") {
+    e.preventDefault();
+    const step = steps[state.stepIndex];
+    if (state.screen === "game" && step) {
+      if (step.type === "r1") revealHint(Math.min(4, step.state.hints + 1));
+      else if (step.type === "r2" && !step.state.countdownRunning) startCountdown();
+    }
+  } else if (e.key === "Enter") {
+    if (state.screen === "game") showAnswer();
+  } else if (e.key === "ArrowRight") {
+    if (state.screen === "game") nextStep();
+  } else if (e.key === "ArrowLeft") {
+    if (state.screen === "game") prevStep();
+  } else if (e.key === "f" || e.key === "F") {
+    toggleFullscreen();
+  } else if (e.key === "r" || e.key === "R") {
+    if (state.screen === "game") resetGame();
+  } else if (e.key === "c" || e.key === "C") {
+    setConfetti(!state.confettiOn);
+  } else if (["1", "2", "3", "4", "5"].includes(e.key)) {
+    state.keySelectedTeam = parseInt(e.key, 10) - 1;
+    renderTopbar();
+  } else if (e.key === "+" || e.key === "=") {
+    if (state.screen === "game" && state.keySelectedTeam !== null) {
+      genericAwardCurrent(state.keySelectedTeam);
+    }
+  }
+});
+
+window.addEventListener("resize", () => {
+  const canvas = document.getElementById("confettiCanvas");
+  if (canvas) { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+});
+
+/* ============================================================
+   SECTION: JAVASCRIPT — INIT
+   ============================================================ */
+steps = buildSteps();
+render();
+</script>
+</body>
+</html>
