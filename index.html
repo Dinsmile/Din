@@ -1252,7 +1252,7 @@ function renderDeductRow() {
   `;
 }
 function deductPoints(teamIdx, amount) {
-  state.teams[teamIdx].score = Math.max(0, state.teams[teamIdx].score - amount);
+  state.teams[teamIdx].score -= amount;
   flashWrong();
   pulseTeam(teamIdx);
   render();
@@ -1271,7 +1271,7 @@ function editScore(idx, val) {
   render();
 }
 function adjustScore(idx, delta) {
-  state.teams[idx].score = Math.max(0, state.teams[idx].score + delta);
+  state.teams[idx].score += delta;
   pulseTeam(idx);
   render();
 }
