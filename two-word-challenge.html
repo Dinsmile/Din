@@ -184,7 +184,10 @@ body{
   <h2>Congratulations!</h2>
   <p>ทีมไหนทำได้เยอะที่สุด?</p>
   <div class="emoji-row">🎉🎉🎉</div>
-  <button class="pill-btn" style="margin-top:2.5rem;" onclick="resetGame()">กลับหน้าเลือกทีม ▶</button>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;margin-top:2.5rem;">
+    <button class="pill-btn" onclick="resetGame()">กลับหน้าเลือกทีม ▶</button>
+    <button class="pill-btn secondary" onclick="goHome()">กลับสู่หน้าหลัก ⌂</button>
+  </div>
   <div id="confetti-container"></div>
 </div>
 
@@ -273,14 +276,23 @@ function showFinal(){
   }
 }
 
-function resetGame(){
+function resetTeams(){
   played[0] = false; played[1] = false; played[2] = false;
   [0, 1, 2].forEach(i => {
     const btn = document.getElementById('btn-team' + (i + 1));
     btn.disabled = false;
     btn.textContent = ['🔴 TEAM 1', '🔵 TEAM 2', '🟡 TEAM 3'][i];
   });
+}
+
+function resetGame(){
+  resetTeams();
   showView('v-hub');
+}
+
+function goHome(){
+  resetTeams();
+  showView('v-title');
 }
 </script>
 </body>
